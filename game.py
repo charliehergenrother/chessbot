@@ -15,6 +15,7 @@ whiteChar = 'W'
 blackChar = 'B'
 emptySquare = "  "
 captureChar = 'x'
+opponent = {'W': 'B', 'B': 'W'}
 
 class Game:
 
@@ -32,7 +33,7 @@ class Game:
         BlackFrontRow = self.makeFrontRow(blackChar)
         WhiteFrontRow = self.makeFrontRow(whiteChar)
         WhiteBackRow = self.makeBackRow(whiteChar)
-        return [WhiteBackRow, WhiteFrontRow, EmptyRow, EmptyRow, EmptyRow, EmptyRow, BlackFrontRow, BlackBackRow]
+        return [WhiteBackRow, WhiteFrontRow, list(EmptyRow), list(EmptyRow), list(EmptyRow), list(EmptyRow), BlackFrontRow, BlackBackRow]
 
     #Sets up the back row for one color
         #param color: 'W' or 'B'
@@ -61,8 +62,32 @@ class Game:
                     continue
                 if square[1] == pawnChar:
                     moves.extend(self.findPawnMoves(rankIndex, fileIndex))
+                elif square[1] == knightChar:
+                    moves.extend(self.findKnightMoves(rankIndex, fileIndex))
                     #TODO: other pieces
-        return moves
+        return sorted(moves)
+    
+    def getColorDirection(self):
+        if self.ToMove == whiteChar:
+            return 1
+        else:
+            return -1
+    
+    def getPawnStartRank(self):
+        if self.ToMove == whiteChar:
+            return 1
+        else:
+            return 6
+
+    #Does basic checks on if a piece is on the board where the move finder has been told
+        #param rankIndex: rank the piece is on. 0 = 1st rank, 1 = 2nd, etc.
+        #param fileIndex: file the piece is on. 0 = a-file, 1 = b-file, etc.
+    def moveSanityChecks(self, rankIndex, fileIndex):
+        if rankIndex < 0 or rankIndex > 7:
+            print(rankIndex)
+            raise Exception("Piece in the wrong place")
+        if self.Board[rankIndex][fileIndex][0] != self.ToMove:
+            raise Exception("Looking for the wrong color")
 
     #Gets direction that a particular pawn on the board is moving
         #param rankIndex: rank the pawn is on. 0 = 1st rank, 1 = 2nd, etc.
@@ -88,45 +113,105 @@ class Game:
         #TODO: promotion
         #TODO: capturing
     def findPawnMoves(self, rankIndex, fileIndex):
+        self.moveSanityChecks(rankIndex, fileIndex)
         moves = []
-        if self.Board[rankIndex][fileIndex][0] != self.ToMove:
-            raise Exception("Looking for the wrong color")
-        if rankIndex <= 0 or rankIndex >= 7:
-            raise Exception("Pawn in the wrong place")
         direction, startRank = self.getPawnDirection(rankIndex, fileIndex)
         #TODO: check for check
         if self.Board[rankIndex + direction][fileIndex] == emptySquare:
             moves.append(fileITA[fileIndex] + rankITA[rankIndex + direction])
             if rankIndex == startRank and self.Board[rankIndex + direction + direction][fileIndex] == emptySquare:
                 moves.append(fileITA[fileIndex] + rankITA[rankIndex + direction + direction])
+        if fileIndex > 0:
+            if self.Board[rankIndex + direction][fileIndex - 1][0] == opponent[self.ToMove]:
+                moves.append(fileITA[fileIndex] + 'x' + fileITA[fileIndex - 1] + rankITA[rankIndex + direction])
+        if fileIndex < 7:
+            if self.Board[rankIndex + direction][fileIndex + 1][0] == opponent[self.ToMove]:
+                moves.append(fileITA[fileIndex] + 'x' + fileITA[fileIndex + 1] + rankITA[rankIndex + direction])
+        return moves
 
-        return moves 
-    
+    #Finds moves a particular knight can make
+        #param rankIndex: rank the knight is on. 0 = 1st rank, 1 = 2nd, etc.
+        #param fileIndex: file the knight is on. 0 = a-file, 1 = b-file, etc.
+        #returns: list of moves that the knight can make. Nf3, Nbd2, Nxd4, etc.
+    def findKnightMoves(self, rankIndex, fileIndex):
+        self.moveSanityChecks(rankIndex, fileIndex)
+        moves = []
+        moveIndices = [[2, -1], [2, 1], [1, 2], [-1, 2], [-2, 1], [-2, -1], [-1, -2], [1, -2]]
+        #TODO: check for check
+        #TODO: conflicts
+        for moveIndex in moveIndices:
+            targetRankIndex = rankIndex + moveIndex[0]
+            targetFileIndex = fileIndex + moveIndex[1]
+            if targetRankIndex > 7 or targetRankIndex < 0 or targetFileIndex > 7 or targetFileIndex < 0:
+                continue
+            if self.Board[targetRankIndex][targetFileIndex] == emptySquare:
+                moves.append('N' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+            elif self.Board[targetRankIndex][targetFileIndex][0] == opponent[self.ToMove]:
+                moves.append('Nx' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+        return moves
+
     #Accepts a move and makes it on the chessboard
         #param move: a legal chess move that can be taken by the active player. e3, exd4, Nf3, O-O-O, etc.
     def MakeMove(self, move):
         #figure out which piece type is moving
         if move[0] in fileITA.values():
-            makePawnMove(move)
+            self.makePawnMove(move)
+        elif move[0] == 'N':
+            self.makeKnightMove(move)
+        else:
+            raise Exception('The heck piece are you trying to move')
         #TODO: other pieces
+        self.ToMove = opponent[self.ToMove]
 
     #Accepts a pawn move and makes it on the chessboard
-        #param move: a legal pawn move that can be taken by the active player. e3, exd4, e8=Q, etc.
+        #param move: a legal knight move that can be taken by the active player. Nf3, Nbd2, Nxd4, etc.
     def makePawnMove(self, move):
+        direction = self.getColorDirection()
         if 'x' in move:
             targetFileIndex = fileATI[move[2]]
             sourceFileIndex = fileATI[move[0]]
             targetRankIndex = rankATI[move[3]]
-            sourceRankIndex = fileATI[move[
+            sourceRankIndex = rankATI[move[3]] - direction
         else:
             targetFileIndex = fileATI[move[0]]
             sourceFileIndex = fileATI[move[0]]
             targetRankIndex = rankATI[move[1]]
-            
+            if self.Board[targetRankIndex - direction][sourceFileIndex] == self.ToMove + pawnChar:
+                sourceRankIndex = targetRankIndex - direction
+            elif self.Board[targetRankIndex - direction][sourceFileIndex] == emptySquare:
+                sourceRankIndex = targetRankIndex - direction - direction
+                if sourceRankIndex != self.getPawnStartRank():
+                    raise Exception("Can't move the pawn like that")
+        #TODO: copy board, make move on copy, check it, and set it to be the real board
+        #TODO: promotion
+        if self.Board[sourceRankIndex][sourceFileIndex] != self.ToMove + pawnChar:
+            print(self.Board[sourceRankIndex][sourceFileIndex])
+            raise Exception("No pawn here")
+        if self.Board[targetRankIndex][targetFileIndex] != emptySquare and 'x' not in move:
+            raise Exception("Can't move here")
+        self.Board[sourceRankIndex][sourceFileIndex] = emptySquare
+        self.Board[targetRankIndex][targetFileIndex] = self.ToMove + pawnChar
 
-
-
-
+    #Accepts a knight move and makes it on the chessboard
+        #param move: a legal pawn move that can be taken by the active player. e3, exd4, e8=Q, etc.
+    def makeKnightMove(self, move):
+        targetFileIndex = fileATI[move[-2]]
+        targetRankIndex = rankATI[move[-1]]
+        moveIndices = [[2, -1], [2, 1], [1, 2], [-1, 2], [-2, 1], [-2, -1], [-1, -2], [1, -2]]
+        for moveIndex in moveIndices:
+            #TODO: conflicts
+            sourceRankIndex = targetRankIndex + moveIndex[0]
+            sourceFileIndex = targetFileIndex + moveIndex[1]
+            if sourceRankIndex > 7 or sourceRankIndex < 0 or sourceFileIndex > 7 or sourceFileIndex < 0:
+                continue
+            if self.Board[sourceRankIndex][sourceFileIndex] == self.ToMove + knightChar:
+                break
+        if self.Board[sourceRankIndex][sourceFileIndex] != self.ToMove + knightChar:
+            raise Exception("No knight here")
+        if self.Board[targetRankIndex][targetFileIndex] != emptySquare and 'x' not in move:
+            raise Exception("Can't move here")
+        self.Board[sourceRankIndex][sourceFileIndex] = emptySquare
+        self.Board[targetRankIndex][targetFileIndex] = self.ToMove + knightChar
 
 
 
