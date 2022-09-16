@@ -6,6 +6,8 @@ charToColor = {'W': 'White', 'B': 'Black'}
 
 if __name__ == '__main__':
     game = Game()
+    f = open("./lastgame.txt", "w")
+    moveNum = 1
     while True:
         print()
         print("It's " + charToColor[game.ToMove] + "'s move!")
@@ -22,8 +24,13 @@ if __name__ == '__main__':
             #TODO: undo
             if selectedMove in moves:
                 game.MakeMove(selectedMove)
+                if game.ToMove == 'B':
+                    #TODO: get proper move format out of MakeMove
+                    f.write(str(moveNum) + ". " + selectedMove)
+                else:
+                    f.write(" " + selectedMove + "\n")
+                    moveNum += 1
                 break
             else:
                 print("Invalid move.")
-            #TODO: save moves to a file
 
