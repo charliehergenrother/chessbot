@@ -17,13 +17,15 @@ emptySquare = "  "
 captureChar = 'x'
 opponent = {'W': 'B', 'B': 'W'}
 
+#Class containing all information for a running chess game
 class Game:
 
     #Creates an instance of the Game class. Sets up the board and initiates White as the starting player
     def __init__(self):
-        self.ToMove = "W"
+        self.ToMove = whiteChar
         self.Board = self.makeBoard()
         self.enPassantSquare = ""
+        self.MoveNum = 1
 
     #Sets up the chessboard for a new game
         #returns: list of 8 lists, each representing a rank in a chessboard and containing 8 2-character strings
@@ -66,15 +68,25 @@ class Game:
                     moves.extend(self.findKnightMoves(rankIndex, fileIndex))
                 elif square[1] == bishopChar:
                     moves.extend(self.findBishopMoves(rankIndex, fileIndex))
-                    #TODO: other pieces
+                elif square[1] == rookChar:
+                    moves.extend(self.findRookMoves(rankIndex, fileIndex))
+                elif square[1] == queenChar:
+                    moves.extend(self.findQueenMoves(rankIndex, fileIndex))
+                elif square[1] == kingChar:
+                    moves.extend(self.findKingMoves(rankIndex, fileIndex))
+                #TODO: castling
         return sorted(moves)
     
+    #Gets the direction the active player is going on the chessboard
+        #returns 1 if the active player is White and -1 if it is Black
     def getColorDirection(self):
         if self.ToMove == whiteChar:
             return 1
         else:
             return -1
     
+    #Gets the starting rank index of the pawns for the active player
+        #returns 1 if the active player is White and 6 if it is Black
     def getPawnStartRank(self):
         if self.ToMove == whiteChar:
             return 1
@@ -107,13 +119,12 @@ class Game:
             raise Exception("No piece here")
         return direction, startRank
 
-
     #Finds moves a particular pawn can make
         #param rankIndex: rank the pawn is on. 0 = 1st rank, 1 = 2nd, etc.
         #param fileIndex: file the pawn is on. 0 = a-file, 1 = b-file, etc.
         #returns: list of moves that the pawn can make. e3, e4, exd4, e8=Q, etc.
         #TODO: promotion
-        #TODO: capturing
+        #TODO: en passant
     def findPawnMoves(self, rankIndex, fileIndex):
         self.moveSanityChecks(rankIndex, fileIndex)
         moves = []
@@ -147,16 +158,16 @@ class Game:
             if targetRankIndex > 7 or targetRankIndex < 0 or targetFileIndex > 7 or targetFileIndex < 0:
                 continue
             if self.Board[targetRankIndex][targetFileIndex] == emptySquare:
-                moves.append('N' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                moves.append(knightChar + fileITA[targetFileIndex] + rankITA[targetRankIndex])
             elif self.Board[targetRankIndex][targetFileIndex][0] == opponent[self.ToMove]:
-                moves.append('Nx' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                moves.append(knightChar + 'x' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
         return moves
 
     #Finds moves a particular bishop can make
         #param rankIndex: rank the bishop is on. 0 = 1st rank, 1 = 2nd, etc.
         #param fileIndex: file the bishop is on. 0 = a-file, 1 = b-file, etc.
         #returns: list of moves that the bishop can make. Bb5, Bxf6, etc.
-    def findBishopMoves(self, rankIndex, fileIndex):
+    def findBishopMoves(self, rankIndex, fileIndex, piece=bishopChar):
         self.moveSanityChecks(rankIndex, fileIndex)
         moves = []
         moveDirections = [[1, 1], [1, -1], [-1, -1], [-1, 1]]
@@ -171,11 +182,79 @@ class Game:
                 if targetRankIndex > 7 or targetRankIndex < 0 or targetFileIndex > 7 or targetFileIndex < 0:
                     break
                 if self.Board[targetRankIndex][targetFileIndex] == emptySquare:
-                    moves.append('B' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                    moves.append(piece + fileITA[targetFileIndex] + rankITA[targetRankIndex])
                 elif self.Board[targetRankIndex][targetFileIndex][0] == opponent[self.ToMove]:
-                    moves.append('Bx' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                    moves.append(piece + 'x' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                    break
                 elif self.Board[targetRankIndex][targetFileIndex][0] == self.ToMove:
                     break
+                else: #something has gone wrong
+                    raise Exception("unidentified piece present")
+        return moves
+
+    #Finds moves a particular rook can make
+        #param rankIndex: rank the rook is on. 0 = 1st rank, 1 = 2nd, etc.
+        #param fileIndex: file the rook is on. 0 = a-file, 1 = b-file, etc.
+        #returns: list of moves that the rook can make. Rd1, Rxe5, etc.
+    def findRookMoves(self, rankIndex, fileIndex, piece=rookChar):
+        self.moveSanityChecks(rankIndex, fileIndex)
+        moves = []
+        moveDirections = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+        #TODO: check for check
+        #TODO: conflicts
+        for moveDirection in moveDirections:
+            targetRankIndex = rankIndex
+            targetFileIndex = fileIndex
+            while True:
+                targetRankIndex += moveDirection[0]
+                targetFileIndex += moveDirection[1]
+                if targetRankIndex > 7 or targetRankIndex < 0 or targetFileIndex > 7 or targetFileIndex < 0:
+                    break
+                if self.Board[targetRankIndex][targetFileIndex] == emptySquare:
+                    moves.append(piece + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                elif self.Board[targetRankIndex][targetFileIndex][0] == opponent[self.ToMove]:
+                    moves.append(piece + 'x' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                    break
+                elif self.Board[targetRankIndex][targetFileIndex][0] == self.ToMove:
+                    break
+                else: #something has gone wrong
+                    raise Exception("unidentified piece present")
+        return moves
+
+    #Finds moves a particular rook can make
+        #param rankIndex: rank the queen is on. 0 = 1st rank, 1 = 2nd, etc.
+        #param fileIndex: file the queen is on. 0 = a-file, 1 = b-file, etc.
+        #returns: list of moves that the rook can make. Qe8, Qxe5, etc.
+    def findQueenMoves(self, rankIndex, fileIndex):
+        moves = self.findBishopMoves(rankIndex, fileIndex, queenChar)
+        moves.extend(self.findRookMoves(rankIndex, fileIndex, queenChar))
+        return moves
+
+    #Finds moves a particular king can make
+        #param rankIndex: rank the king is on. 0 = 1st rank, 1 = 2nd, etc.
+        #param fileIndex: file the king is on. 0 = a-file, 1 = b-file, etc.
+        #returns: list of moves that the king can make. Ke2, Kxc7, etc.
+    def findKingMoves(self, rankIndex, fileIndex):
+        self.moveSanityChecks(rankIndex, fileIndex)
+        moves = []
+        moveDirections = [-1, 0, 1]
+        #TODO: check for check
+        #TODO (all): can't take king
+        #TODO: castling
+        for rankDirection in list(moveDirections):
+            for fileDirection in list(moveDirections):
+                if not rankDirection and not fileDirection:
+                    continue
+                targetRankIndex = rankIndex + rankDirection
+                targetFileIndex = fileIndex + fileDirection
+                if targetRankIndex > 7 or targetRankIndex < 0 or targetFileIndex > 7 or targetFileIndex < 0:
+                    continue
+                if self.Board[targetRankIndex][targetFileIndex] == emptySquare:
+                    moves.append(kingChar + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                elif self.Board[targetRankIndex][targetFileIndex][0] == opponent[self.ToMove]:
+                    moves.append(kingChar + 'x' + fileITA[targetFileIndex] + rankITA[targetRankIndex])
+                elif self.Board[targetRankIndex][targetFileIndex][0] == self.ToMove:
+                    continue
                 else: #something has gone wrong
                     raise Exception("unidentified piece present")
         return moves
@@ -184,14 +263,23 @@ class Game:
         #param move: a legal chess move that can be taken by the active player. e3, exd4, Nf3, O-O-O, etc.
     def MakeMove(self, move):
         #figure out which piece type is moving
+        result = True
         if move[0] in fileITA.values():
-            self.makePawnMove(move)
-        elif move[0] == 'N':
-            self.makeKnightMove(move)
-        elif move[0] == 'B':
-            self.makeBishopMove(move)
+            result = self.makePawnMove(move)
+        elif move[0] == knightChar:
+            result = self.makeKnightMove(move)
+        elif move[0] == bishopChar:
+            result = self.makeBishopMove(move)
+        elif move[0] == rookChar:
+            result = self.makeRookMove(move)
+        elif move[0] == queenChar:
+            result = self.makeQueenMove(move)
+        elif move[0] == kingChar:
+            result = self.makeKingMove(move)
         else:
             raise Exception('The heck piece are you trying to move')
+        if not result:
+            raise Exception('The heck move are you trying to make')
         #TODO: other pieces
         self.ToMove = opponent[self.ToMove]
 
@@ -223,6 +311,7 @@ class Game:
             raise Exception("Can't move here")
         self.Board[sourceRankIndex][sourceFileIndex] = emptySquare
         self.Board[targetRankIndex][targetFileIndex] = self.ToMove + pawnChar
+        return True
 
     #Accepts a knight move and makes it on the chessboard
         #param move: a legal knight move that can be taken by the active player. Nf3, Nbd2, Nxd4, etc.
@@ -244,10 +333,11 @@ class Game:
             raise Exception("Can't move here")
         self.Board[sourceRankIndex][sourceFileIndex] = emptySquare
         self.Board[targetRankIndex][targetFileIndex] = self.ToMove + knightChar
+        return True
 
     #Accepts a bishop move and makes it on the chessboard
         #param move: a legal bishop move that can be taken by the active player. Bb5, Bxf6, etc.
-    def makeBishopMove(self, move):
+    def makeBishopMove(self, move, piece=bishopChar):
         targetFileIndex = fileATI[move[-2]]
         targetRankIndex = rankATI[move[-1]]
         moveDirections = [[1, 1], [1, -1], [-1, -1], [-1, 1]]
@@ -260,12 +350,61 @@ class Game:
                 sourceFileIndex += moveDirection[1]
                 if sourceRankIndex > 7 or sourceRankIndex < 0 or sourceFileIndex > 7 or sourceFileIndex < 0:
                     break
-                if self.Board[sourceRankIndex][sourceFileIndex] == self.ToMove + bishopChar:
+                if self.Board[sourceRankIndex][sourceFileIndex] == self.ToMove + piece:
                     self.Board[sourceRankIndex][sourceFileIndex] = emptySquare
-                    self.Board[targetRankIndex][targetFileIndex] = self.ToMove + bishopChar
+                    self.Board[targetRankIndex][targetFileIndex] = self.ToMove + piece
+                    return True
                 if self.Board[sourceRankIndex][sourceFileIndex] == emptySquare:
                     continue
                 break
+
+    #Accepts a rook move and makes it on the chessboard
+        #param move: a legal rook move that can be taken by the active player. Rd1, Rxe5, etc.
+    def makeRookMove(self, move, piece=rookChar):
+        targetFileIndex = fileATI[move[-2]]
+        targetRankIndex = rankATI[move[-1]]
+        moveDirections = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+        #TODO: conflicts
+        for moveDirection in moveDirections:
+            sourceRankIndex = targetRankIndex
+            sourceFileIndex = targetFileIndex
+            while True:
+                sourceRankIndex += moveDirection[0]
+                sourceFileIndex += moveDirection[1]
+                if sourceRankIndex > 7 or sourceRankIndex < 0 or sourceFileIndex > 7 or sourceFileIndex < 0:
+                    break
+                if self.Board[sourceRankIndex][sourceFileIndex] == self.ToMove + piece:
+                    self.Board[sourceRankIndex][sourceFileIndex] = emptySquare
+                    self.Board[targetRankIndex][targetFileIndex] = self.ToMove + piece
+                    return True
+                if self.Board[sourceRankIndex][sourceFileIndex] == emptySquare:
+                    continue
+                break
+
+    #Accepts a queen move and makes it on the chessboard
+        #param move: a legal queen move that can be taken by the active player. Qe8, Qxe5, etc.
+    def makeQueenMove(self, move):
+        if not self.makeBishopMove(move, queenChar):
+            return self.makeRookMove(move, queenChar)
+        return True
+
+    #Accepts a king move and makes it on the chessboard
+        #param move: a legal king move that can be taken by the active player. Ke2, Kxc7, etc.
+    def makeKingMove(self, move):
+        targetFileIndex = fileATI[move[-2]]
+        targetRankIndex = rankATI[move[-1]]
+        moveDirections = [-1, 0, 1]
+        for fileDirection in list(moveDirections):
+            for rankDirection in list(moveDirections):
+                sourceRankIndex = targetRankIndex + rankDirection
+                sourceFileIndex = targetFileIndex + fileDirection
+                if sourceRankIndex > 7 or sourceRankIndex < 0 or sourceFileIndex > 7 or sourceFileIndex < 0:
+                    break
+                if self.Board[sourceRankIndex][sourceFileIndex] == self.ToMove + kingChar:
+                    self.Board[sourceRankIndex][sourceFileIndex] = emptySquare
+                    self.Board[targetRankIndex][targetFileIndex] = self.ToMove + kingChar
+                    return True
+
 
 
 
